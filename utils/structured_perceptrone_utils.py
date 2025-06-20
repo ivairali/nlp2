@@ -644,3 +644,181 @@ class NERFeatures_4(IDFeatures):
                 features.append(feat_id)
 
 
+class NERFeatures_5(IDFeatures):
+    def add_emission_features(self, sequence, pos, y, features):
+        x = sequence.x[pos]
+        y_name = self.dataset.y_dict.get_label_name(y)
+
+        # Get word string
+        if isinstance(x, str):
+            word = x
+        else:
+            try:
+                word = self.dataset.x_dict.get_label_name(x)
+            except IndexError:
+                word = "<UNK>"
+
+        feat_id = self.add_feature(f"id:{word}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # hand-crafted for NER:
+
+        # lowercased
+        feat_id = self.add_feature(f"lower:{word.lower()}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # Capitalization
+        if word and word[0].isupper():
+            feat_id = self.add_feature(f"capitalized::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # All caps
+        if word.isupper():
+            feat_id = self.add_feature(f"all_caps::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains digit
+        if any(char.isdigit() for char in word):
+            feat_id = self.add_feature(f"contains_digit::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains hyphen
+        if '-' in word:
+            feat_id = self.add_feature(f"has_hyphen::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains dot
+        if '.' in word:
+            feat_id = self.add_feature(f"has_dot::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Prefixes and suffixes
+        for l in [2, 3, 4]:
+            if len(word) > l:
+                suffix = word[-l:]
+                prefix = word[:l]
+                feat_id = self.add_feature(f"suffix:{suffix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+                feat_id = self.add_feature(f"prefix:{prefix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+
+        # === FALLBACK FOR UNKNOWN ===
+        if len(features) == 0:
+            feat_id = self.add_feature(f"unknown_word::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        return features
+
+
+class NERFeatures_6(IDFeatures):
+    def add_emission_features(self, sequence, pos, y, features):
+        x = sequence.x[pos]
+        y_name = self.dataset.y_dict.get_label_name(y)
+
+        # Get word string
+        if isinstance(x, str):
+            word = x
+        else:
+            try:
+                word = self.dataset.x_dict.get_label_name(x)
+            except IndexError:
+                word = "<UNK>"
+
+        feat_id = self.add_feature(f"id:{word}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # lowercased
+        feat_id = self.add_feature(f"lower:{word.lower()}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # Capitalization
+        if word and word[0].isupper():
+            feat_id = self.add_feature(f"capitalized::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # All caps
+        if word.isupper():
+            feat_id = self.add_feature(f"all_caps::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains digit
+        if any(char.isdigit() for char in word):
+            feat_id = self.add_feature(f"contains_digit::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains hyphen
+        if '-' in word:
+            feat_id = self.add_feature(f"has_hyphen::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains dot
+        if '.' in word:
+            feat_id = self.add_feature(f"has_dot::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Ends with 's
+        if word.lower().endswith("'s"):
+            feat_id = self.add_feature(f"ends_with_apostrophe_s::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Multiple uppercase letters but not all
+        uppercase_count = sum(1 for c in word if c.isupper())
+        if 1 < uppercase_count < len(word):
+            feat_id = self.add_feature(f"mixed_caps::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Previous word is a direction
+        if pos > 0:
+            prev_x = sequence.x[pos - 1]
+            if isinstance(prev_x, str):
+                prev_word = prev_x
+            else:
+                try:
+                    prev_word = self.dataset.x_dict.get_label_name(prev_x)
+                except IndexError:
+                    prev_word = "<UNK>"
+
+            if prev_word.lower() in {"north", "south", "east", "west"}:
+                feat_id = self.add_feature(f"follows_direction::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+
+        # Prefixes and suffixes
+        for l in [2, 3, 4]:
+            if len(word) > l:
+                suffix = word[-l:]
+                prefix = word[:l]
+                feat_id = self.add_feature(f"suffix:{suffix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+                feat_id = self.add_feature(f"prefix:{prefix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+
+        # Fallback
+        if len(features) == 0:
+            feat_id = self.add_feature(f"unknown_word::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        return features
+
