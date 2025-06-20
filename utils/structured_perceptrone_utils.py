@@ -224,6 +224,7 @@ def flatten_predictions(sequences_predictions, tag_dict):
             labels.append(tag_dict.get_label_name(y_hat))
     return labels
 
+
 from sklearn.metrics import confusion_matrix, f1_score, classification_report
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -256,7 +257,9 @@ def evaluate_predictions(true_seqs, pred_seqs, tag_dict, set_name="Set"):
 
     return cm, f1
 
+
 from skseq.sequences.id_feature import IDFeatures
+
 
 class NERFeatures_2(IDFeatures):
     def add_emission_features(self, sequence, pos, y, features):
@@ -319,8 +322,17 @@ class NERFeatures_2(IDFeatures):
                 features.append(feat_id)
 
         # Word shape (e.g., Xxxx, xxxx, dddd)
-        shape = ''.join(
-            ['X' if c.isupper() else 'x' if c.islower() else 'd' if c.isdigit() else '-' for c in word]
+        shape = "".join(
+            [
+                "X"
+                if c.isupper()
+                else "x"
+                if c.islower()
+                else "d"
+                if c.isdigit()
+                else "-"
+                for c in word
+            ]
         )
         feat_id = self.add_feature(f"shape:{shape}::{y_name}")
         if feat_id != -1:
@@ -347,10 +359,16 @@ class NERFeatures_2(IDFeatures):
             if 0 <= pos + offset < len(sequence.x):
                 neighbor = sequence.x[pos + offset]
                 try:
-                    neighbor_word = neighbor if isinstance(neighbor, str) else self.dataset.x_dict.get_label_name(neighbor)
+                    neighbor_word = (
+                        neighbor
+                        if isinstance(neighbor, str)
+                        else self.dataset.x_dict.get_label_name(neighbor)
+                    )
                 except IndexError:
                     neighbor_word = "<UNK>"
-                feat_id = self.add_feature(f"{label}_word:{neighbor_word.lower()}::{y_name}")
+                feat_id = self.add_feature(
+                    f"{label}_word:{neighbor_word.lower()}::{y_name}"
+                )
                 if feat_id != -1:
                     features.append(feat_id)
 
@@ -362,11 +380,267 @@ class NERFeatures_2(IDFeatures):
 
         return features
 
+
 def show_feats(feature_mapper, seq, inv_feature_dict, feature_type):
-    for feat,feat_ids in enumerate(feature_mapper.get_sequence_features(seq)):
+    for feat, feat_ids in enumerate(feature_mapper.get_sequence_features(seq)):
         print(feature_type[feat])
         for id_list in feat_ids:
-            print ("\t",id_list)
-            for k,id_val in enumerate(id_list):
-                print ("\t\t", inv_feature_dict[id_val] )
+            print("\t", id_list)
+            for k, id_val in enumerate(id_list):
+                print("\t\t", inv_feature_dict[id_val])
         print("\n")
+
+
+class NERFeatures_3(IDFeatures):
+    def add_emission_features(self, sequence, pos, y, features):
+        x = sequence.x[pos]
+        y_name = self.dataset.y_dict.get_label_name(y)
+
+        # Get word string
+        if isinstance(x, str):
+            word = x
+        else:
+            try:
+                word = self.dataset.x_dict.get_label_name(x)
+            except IndexError:
+                word = "<UNK>"
+
+        # Word identity
+        feat_id = self.add_feature(f"id:{word}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # === Hand-crafted NER features ===
+
+        # Lowercased
+        feat_id = self.add_feature(f"lower:{word.lower()}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        # Capitalization
+        if word and word[0].isupper():
+            feat_id = self.add_feature(f"capitalized::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # All caps
+        if word.isupper():
+            feat_id = self.add_feature(f"all_caps::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Contains digit
+        if any(char.isdigit() for char in word):
+            feat_id = self.add_feature(f"contains_digit::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Prefixes and suffixes
+        # Only 3-letter prefix and suffix
+        if len(word) > 3:
+            suffix = word[-3:]
+            prefix = word[:3]
+            feat_id = self.add_feature(f"suffix:{suffix}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+            feat_id = self.add_feature(f"prefix:{prefix}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # add 4-letter suffixes only
+        if len(word) > 4:
+            suffix = word[-4:]
+            feat_id = self.add_feature(f"suffix4:{suffix}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Trigger words for different categories:
+
+        # Person triggers
+        if y_name in {"B-per", "I-per"} and word in {
+            "Mr",
+            "Mrs",
+            "Miss",
+            "Dr",
+            "Sir",
+            "Prof",
+        }:
+            feat_id = self.add_feature(f"trigger_person::{word}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Organization triggers
+        if y_name in {"B-org", "I-org"} and word in {"Inc", "Corp", "Ltd"}:
+            feat_id = self.add_feature(f"trigger_org::{word}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Geographical triggers
+        if y_name in {"B-geo", "I-geo"} and word.lower() in {
+            "river",
+            "mountain",
+            "lake",
+            "valley",
+            "bay",
+            "gulf",
+        }:
+            feat_id = self.add_feature(f"trigger_geo::{word.lower()}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Event triggers
+        if y_name in {"B-eve", "I-eve"} and word.lower() in {
+            "war",
+            "summit",
+            "festival",
+        }:
+            feat_id = self.add_feature(f"trigger_event::{word.lower()}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Natural triggers
+        if y_name in {"B-nat", "I-nat"} and word.lower() in {"virus", "hurricane"}:
+            feat_id = self.add_feature(f"trigger_natural::{word.lower()}::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # === Fallback for unknown ===
+        if len(features) == 0:
+            feat_id = self.add_feature(f"unknown_word::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        return features
+
+
+class NERFeatures_4(IDFeatures):
+    
+    def get_emission_features(self, sequence, pos, y):
+        features = []
+        self.add_emission_features(sequence, pos, y, features)
+        return features
+        
+    def add_emission_features(self, sequence, pos, y, features):
+        x = sequence.x[pos]
+        y_name = self.dataset.y_dict.get_label_name(y)
+
+        # Get current word
+        if isinstance(x, str):
+            word = x
+        else:
+            try:
+                word = self.dataset.x_dict.get_label_name(x)
+            except IndexError:
+                word = "<UNK>"
+
+        # === Standard Features ===
+        feat_id = self.add_feature(f"id:{word}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        feat_id = self.add_feature(f"lower:{word.lower()}::{y_name}")
+        if feat_id != -1:
+            features.append(feat_id)
+
+        if word and word[0].isupper():
+            feat_id = self.add_feature(f"capitalized::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if word.isupper():
+            feat_id = self.add_feature(f"all_caps::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if any(char.isdigit() for char in word):
+            feat_id = self.add_feature(f"contains_digit::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # Prefix and Suffix Features
+        for l in [2, 3, 4]:
+            if len(word) > l:
+                suffix = word[-l:]
+                prefix = word[:l]
+                feat_id = self.add_feature(f"suffix:{suffix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+                feat_id = self.add_feature(f"prefix:{prefix}::{y_name}")
+                if feat_id != -1:
+                    features.append(feat_id)
+
+        # Trigger word lists
+        person_triggers = {"Mr", "Mrs", "Miss", "Dr", "Sir", "Prof"}
+        org_triggers = {"Inc", "Corp", "Ltd"}
+        geo_triggers = {"river", "mountain", "lake", "valley", "bay", "gulf"}
+        event_triggers = {"war", "summit", "festival"}
+        nat_triggers = {"virus", "hurricane"}
+
+        # === Contextual trigger features ===
+        def get_word_at(index):
+            if 0 <= index < len(sequence.x):
+                token = sequence.x[index]
+                return token if isinstance(token, str) else self.dataset.x_dict.get_label_name(token)
+            return ""
+
+        prev_word = get_word_at(pos - 1)
+        next_word = get_word_at(pos + 1)
+
+        # Check trigger categories in context
+        if prev_word in person_triggers:
+            feat_id = self.add_feature(f"prev_has_trigger_person::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if next_word in person_triggers:
+            feat_id = self.add_feature(f"next_has_trigger_person::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if prev_word in org_triggers:
+            feat_id = self.add_feature(f"prev_has_trigger_org::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if next_word in org_triggers:
+            feat_id = self.add_feature(f"next_has_trigger_org::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if prev_word.lower() in geo_triggers:
+            feat_id = self.add_feature(f"prev_has_trigger_geo::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if next_word.lower() in geo_triggers:
+            feat_id = self.add_feature(f"next_has_trigger_geo::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if prev_word.lower() in event_triggers:
+            feat_id = self.add_feature(f"prev_has_trigger_event::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if next_word.lower() in event_triggers:
+            feat_id = self.add_feature(f"next_has_trigger_event::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if prev_word.lower() in nat_triggers:
+            feat_id = self.add_feature(f"prev_has_trigger_natural::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        if next_word.lower() in nat_triggers:
+            feat_id = self.add_feature(f"next_has_trigger_natural::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+        # === Fallback for unknown ===
+        if len(features) == 0:
+            feat_id = self.add_feature(f"unknown_word::{y_name}")
+            if feat_id != -1:
+                features.append(feat_id)
+
+
